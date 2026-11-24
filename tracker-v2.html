@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Трекер учебных задач</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: #f4f5f7;
+    color: #1c1e21;
+  }
+  .app {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 16px 12px 32px;
+  }
+  h1 {
+    font-size: 1.25rem;
+    margin: 0 0 12px;
+  }
+  .card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .08);
+    margin-bottom: 12px;
+    max-width: 100%;
+  }
+  .notice {
+    margin: 0 0 12px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: #fff7e0;
+    color: #7a5b00;
+    font-size: .9rem;
+  }
+  .summary-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    align-items: baseline;
+  }
+  .progress {
+    height: 10px;
+    background: #e6e8ec;
+    border-radius: 999px;
+    overflow: hidden;
+    margin-top: 10px;
+  }
+  .progress-fill {
+    height: 100%;
+    width: 0%;
+    background: #3b82f6;
+    transition: width .2s ease;
+  }
+  .progress-value {
+    font-weight: 600;
+  }
+  .field {
+    margin-bottom: 4px;
+  }
+  .field label {
+    display: block;
+    font-size: .9rem;
+    margin-bottom: 4px;
+  }
+  input[type="text"] {
+    width: 100%;
+    font: inherit;
+    padding: 10px 12px;
+    border: 1px solid #c9ccd4;
+    border-radius: 8px;
+    background: #fff;
+  }
+  input[type="text"]:focus {
+    outline: 2px solid #3b82f6;
+    outline-offset: 1px;
+    border-color: #3b82f6;
+  }
+  input[aria-invalid="true"] {
+    border-color: #c2312f;
+  }
+  .error {
+    display: block;
+    color: #c2312f;
+    font-size: .85rem;
+    margin: 4px 0 8px;
+    min-height: 1em;
+  }
+  button {
+    font: inherit;
+    cursor: pointer;
+  }
+  .btn-add {
+    width: 100%;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 8px;
+    background: #3b82f6;
+    color: #fff;
+    margin-top: 4px;
+  }
+  .btn-add:active { background: #2f6fd0; }
+  .filter legend {
+    font-size: .9rem;
+    margin-bottom: 4px;
+    padding: 0;
+  }
+  .filter {
+    border: none;
+    padding: 0;
+    margin: 0;
+  }
+  .filter label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-right: 16px;
+  }
+  .tasks {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .task {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 0;
+    border-bottom: 1px solid #eceef1;
+  }
+  .task:last-child { border-bottom: none; }
+  .task-title {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .task.done .task-title {
+    text-decoration: line-through;
+    color: #8a8f98;
+  }
+  .task-hours {
+    color: #5c6068;
+    white-space: nowrap;
+  }
+  .task-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: .9rem;
+  }
+  .btn-delete {
+    border: 1px solid #c9ccd4;
+    background: #fff;
+    color: #c2312f;
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: .85rem;
+  }
+  .btn-delete:hover { background: #fdecec; }
+  .empty {
+    padding: 12px 0;
+    color: #5c6068;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>Трекер учебных задач</h1>
+
+  <p id="storage-notice" class="notice" hidden>
+    Локальное хранилище недоступно — данные не сохранятся после перезагрузки страницы. Трекер продолжит работать в памяти.
+  </p>
+
+  <section class="card" aria-label="Итоги недели">
+    <div class="summary-row">
+      <span>Выполнено: <strong id="done-total">0 ч</strong></span>
+      <span>Всего: <strong id="all-total">0 ч</strong></span>
+      <span class="progress-value" id="progress-value">0%</span>
+    </div>
+    <div class="progress" role="progressbar" aria-label="Прогресс недели"
+         aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+      <div class="progress-fill" id="progress-fill"></div>
+    </div>
+  </section>
+
+  <form id="add-form" class="card" novalidate>
+    <div class="field">
+      <label for="title-input">Название задачи</label>
+      <input type="text" id="title-input" name="title" autocomplete="off">
+      <small class="error" id="title-error" role="alert"></small>
+    </div>
+    <div class="field">
+      <label for="hours-input">Часы (от 0,5 до 24, шаг 0,5)</label>
+      <input type="text" id="hours-input" name="hours" inputmode="decimal" autocomplete="off">
+      <small class="error" id="hours-error" role="alert"></small>
+    </div>
+    <button type="submit" class="btn-add">Добавить задачу</button>
+  </form>
+
+  <section class="card" aria-label="Список задач">
+    <fieldset class="filter">
+      <legend>Показать</legend>
+      <label><input type="radio" name="filter" value="all" checked> Все</label>
+      <label><input type="radio" name="filter" value="active"> Активные</label>
+    </fieldset>
+    <ul class="tasks" id="task-list"></ul>
+    <p class="empty" id="empty-message" hidden></p>
+  </section>
+</div>
+
+<script>
+'use strict';
+
+const STORAGE_KEY = 'study-tracker-tasks';
+
+const START_TASKS = [
+  { id: 1, title: 'Чтение', hours: 2, done: true },
+  { id: 2, title: 'Практика', hours: 4, done: false },
+  { id: 3, title: 'Повторение', hours: 2, done: false }
+];
+
+let tasks = [];
+let nextId = 1;
+let filter = 'all';
+let storageOk = true;
+
+const $ = (id) => document.getElementById(id);
+const listEl = $('task-list');
+const emptyEl = $('empty-message');
+const totalEl = $('all-total');
+const doneEl = $('done-total');
+const progressFill = $('progress-fill');
+const progressValue = $('progress-value');
+const progressBar = document.querySelector('.progress');
+const titleInput = $('title-input');
+const hoursInput = $('hours-input');
+const titleError = $('title-error');
+const hoursError = $('hours-error');
+const storageNotice = $('storage-notice');
+
+/* Хранилище */
+
+function storageProbe() {
+  try {
+    const probe = '__tracker_probe__';
+    localStorage.setItem(probe, '1');
+    localStorage.removeItem(probe);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function loadTasks() {
+  if (!storageOk) return null;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (!Array.isArray(data)) return null;
+    const valid = data.filter(function (t) {
+      return t && typeof t === 'object' &&
+        typeof t.title === 'string' && t.title.trim() !== '' &&
+        typeof t.hours === 'number' && isFinite(t.hours) &&
+        t.hours >= 0.5 && t.hours <= 24 &&
+        Math.abs(t.hours * 2 - Math.round(t.hours * 2)) < 1e-9 &&
+        typeof t.done === 'boolean';
+    }).map(function (t, i) {
+      return {
+        id: Number.isInteger(t.id) ? t.id : i + 1,
+        title: t.title,
+        hours: t.hours,
+        done: t.done
+      };
+    });
+    return valid;
+  } catch (e) {
+    return null;
+  }
+}
+
+function saveTasks() {
+  if (!storageOk) return;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+  } catch (e) {
+    storageOk = false;
+    showStorageNotice();
+  }
+}
+
+function showStorageNotice() {
+  storageNotice.hidden = false;
+}
+
+/* Расчёты */
+
+function totals(list) {
+  let total = 0;
+  let done = 0;
+  for (const t of list) {
+    total += t.hours;
+    if (t.done) done += t.hours;
+  }
+  return { total: total, done: done };
+}
+
+function progressPercent(list) {
+  const t = totals(list);
+  if (!(t.total > 0)) return 0; // нет задач — 0%, без NaN/Infinity
+  return Math.round(100 * t.done / t.total);
+}
+
+function formatHours(h) {
+  const r = Math.round(h * 2) / 2;
+  return r.toLocaleString('ru-RU', { maximumFractionDigits: 1 }) + ' ч';
+}
+
+function parseHours(raw) {
+  const s = String(raw).trim().replace(',', '.');
+  if (s === '') return { error: 'Укажите часы (от 0,5 до 24).' };
+  const v = Number(s);
+  if (!isFinite(v)) return { error: 'Часы должны быть числом.' };
+  if (v < 0.5) return { error: 'Минимум 0,5 ч.' };
+  if (v > 24) return { error: 'Не больше 24 ч.' };
+  if (Math.abs(v * 2 - Math.round(v * 2)) > 1e-9) {
+    return { error: 'Шаг — 0,5 ч (например, 1, 1,5, 2).' };
+  }
+  return { value: v };
+}
+
+/* Ошибки формы */
+
+function setFieldError(errEl, input, message) {
+  errEl.textContent = message;
+  input.setAttribute('aria-invalid', 'true');
+}
+
+function clearErrors() {
+  titleError.textContent = '';
+  hoursError.textContent = '';
+  titleInput.removeAttribute('aria-invalid');
+  hoursInput.removeAttribute('aria-invalid');
+}
+
+/* Рендер */
+
+function renderItem(task) {
+  const li = document.createElement('li');
+  li.className = task.done ? 'task done' : 'task';
+
+  const label = document.createElement('label');
+  label.className = 'task-toggle';
+
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  checkbox.checked = task.done;
+  checkbox.dataset.toggle = String(task.id);
+  label.appendChild(checkbox);
+
+  const name = document.createElement('span');
+  name.textContent = task.done ? 'Готово' : 'Отметить готовой';
+  label.appendChild(name);
+  li.appendChild(label);
+
+  const title = document.createElement('span');
+  title.className = 'task-title';
+  title.textContent = task.title;
+  li.appendChild(title);
+
+  const hours = document.createElement('span');
+  hours.className = 'task-hours';
+  hours.textContent = formatHours(task.hours);
+  li.appendChild(hours);
+
+  const del = document.createElement('button');
+  del.type = 'button';
+  del.className = 'btn-delete';
+  del.textContent = 'Удалить';
+  del.setAttribute('aria-label', 'Удалить задачу: ' + task.title);
+  del.dataset.delete = String(task.id);
+  li.appendChild(del);
+
+  return li;
+}
+
+function render() {
+  // Итоги и прогресс — всегда по всем задачам, независимо от фильтра
+  const t = totals(tasks);
+  const pct = progressPercent(tasks);
+
+  doneEl.textContent = formatHours(t.done);
+  totalEl.textContent = formatHours(t.total);
+  progressValue.textContent = pct + '%';
+  progressFill.style.width = pct + '%';
+  progressBar.setAttribute('aria-valuenow', String(pct));
+
+  const visible = filter === 'active' ? tasks.filter(function (x) { return !x.done; }) : tasks;
+
+  listEl.textContent = '';
+  if (visible.length === 0) {
+    emptyEl.hidden = false;
+    emptyEl.textContent = tasks.length === 0
+      ? 'Задач пока нет — добавьте первую.'
+      : 'Активных задач нет.';
+  } else {
+    emptyEl.hidden = true;
+    for (const task of visible) listEl.appendChild(renderItem(task));
+  }
+}
+
+/* События */
+
+$('add-form').addEventListener('submit', function (e) {
+  e.preventDefault();
+  clearErrors();
+
+  const title = titleInput.value.trim();
+  const hoursRes = parseHours(hoursInput.value);
+  let ok = true;
+
+  if (title === '') {
+    setFieldError(titleError, titleInput, 'Введите название.');
+    ok = false;
+  }
+  if (hoursRes.error) {
+    setFieldError(hoursError, hoursInput, hoursRes.error);
+    ok = false;
+  }
+  if (!ok) return; // данные формы не очищаем
+
+  tasks.push({ id: nextId++, title: title, hours: hoursRes.value, done: false });
+  titleInput.value = '';
+  hoursInput.value = '';
+  titleInput.focus();
+
+  saveTasks();
+  render();
+});
+
+listEl.addEventListener('change', function (e) {
+  const cb = e.target.closest('input[data-toggle]');
+  if (!cb) return;
+  const id = Number(cb.dataset.toggle);
+  const task = tasks.find(function (t) { return t.id === id; });
+  if (task) {
+    task.done = cb.checked;
+    saveTasks();
+    render();
+  }
+});
+
+listEl.addEventListener('click', function (e) {
+  const btn = e.target.closest('button[data-delete]');
+  if (!btn) return;
+  const id = Number(btn.dataset.delete);
+  tasks = tasks.filter(function (t) { return t.id !== id; });
+  saveTasks();
+  render();
+});
+
+document.querySelectorAll('input[name="filter"]').forEach(function (radio) {
+  radio.addEventListener('change', function () {
+    filter = radio.value;
+    render();
+  });
+});
+
+/* Инициализация */
+
+storageOk = storageProbe();
+const stored = loadTasks();
+tasks = stored ? stored : START_TASKS.slice().map(function (t) { return { id: t.id, title: t.title, hours: t.hours, done: t.done }; });
+nextId = tasks.reduce(function (m, t) { return Math.max(m, Number(t.id) || 0); }, 0) + 1;
+if (!storageOk) showStorageNotice();
+if (!stored && storageOk) saveTasks(); // фиксируем стартовый пример
+render();
+</script>
+</body>
+</html>

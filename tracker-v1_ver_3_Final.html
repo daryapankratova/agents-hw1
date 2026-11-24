@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Трекер учебных задач</title>
+<style>
+  :root {
+    --bg: #f4f6fb;
+    --card: #ffffff;
+    --accent: #4f6ef7;
+    --accent-dark: #3a55d9;
+    --done: #2fb380;
+    --danger: #e35b5b;
+    --text: #23272f;
+    --muted: #8a909c;
+    --border: #e3e7ef;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  .container {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 32px 16px;
+  }
+  h1 {
+    font-size: 26px;
+    margin: 0 0 4px;
+  }
+  .subtitle {
+    color: var(--muted);
+    margin: 0 0 24px;
+    font-size: 14px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 16px;
+    box-shadow: 0 2px 8px rgba(35, 39, 47, 0.05);
+  }
+  form.add-form {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .add-form input[type="text"] {
+    flex: 3 1 200px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 15px;
+    outline: none;
+  }
+  .add-form input[type="text"]:focus {
+    border-color: var(--accent);
+  }
+  .add-form input[type="number"] {
+    flex: 1 1 90px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 15px;
+    outline: none;
+  }
+  .add-form input[type="number"]:focus {
+    border-color: var(--accent);
+  }
+  .btn {
+    padding: 10px 16px;
+    border: none;
+    border-radius: 10px;
+    font-size: 15px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+  }
+  .btn-primary:hover { background: var(--accent-dark); }
+  .filters {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .filters button {
+    padding: 8px 14px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: transparent;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--muted);
+  }
+  .filters button.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  ul.task-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  li.task {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 4px;
+    border-bottom: 1px solid var(--border);
+  }
+  li.task:last-child { border-bottom: none; }
+  li.task input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    accent-color: var(--done);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .task .name {
+    flex: 1;
+    font-size: 15px;
+  }
+  li.task.done .name {
+    text-decoration: line-through;
+    color: var(--muted);
+  }
+  .task .hours {
+    color: var(--muted);
+    font-size: 14px;
+    white-space: nowrap;
+  }
+  .task .delete {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-size: 18px;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 8px;
+  }
+  .task .delete:hover { color: var(--danger); background: #fdf0f0; }
+  .empty {
+    text-align: center;
+    color: var(--muted);
+    padding: 24px 0;
+    font-size: 14px;
+  }
+  .stats {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .stat {
+    flex: 1 1 120px;
+    text-align: center;
+  }
+  .stat .value {
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .stat .label {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .progress-wrap {
+    margin-top: 12px;
+    height: 8px;
+    background: var(--border);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--done));
+    border-radius: 999px;
+    transition: width 0.3s ease;
+    width: 0;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Трекер учебных задач</h1>
+  <p class="subtitle">Планируйте задачи и следите за прогрессом</p>
+
+  <div class="card">
+    <form class="add-form" id="addForm">
+      <input type="text" id="taskName" placeholder="Название задачи" required>
+      <input type="number" id="taskHours" placeholder="Часы" min="0" step="0.5" required>
+      <button type="submit" class="btn btn-primary">Добавить</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="filters">
+      <button data-filter="all" class="active">Все</button>
+      <button data-filter="active">Активные</button>
+      <button data-filter="done">Готовые</button>
+    </div>
+    <ul class="task-list" id="taskList"></ul>
+    <div class="empty" id="emptyMsg" hidden>В этом фильтре пока пусто</div>
+  </div>
+
+  <div class="card">
+    <div class="stats">
+      <div class="stat">
+        <div class="value" id="statTotal">0</div>
+        <div class="label">Всего задач</div>
+      </div>
+      <div class="stat">
+        <div class="value" id="statHours">0 ч</div>
+        <div class="label">Общая нагрузка</div>
+      </div>
+      <div class="stat">
+        <div class="value" id="statDone">0%</div>
+        <div class="label">Прогресс</div>
+      </div>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // Версия хранилища: при изменении стартовых данных ключ меняется,
+  // и старые сохранённые данные не перекрывают новые начальные значения.
+  var STORAGE_VERSION = "v3";
+  var STORAGE_KEY = "studyTrackerTasks_" + STORAGE_VERSION;
+  var FILTER_KEY = "studyTrackerFilter_" + STORAGE_VERSION;
+
+  // Начальные данные при первом запуске:
+  // «Чтение» (2 часа) — выполнена (done строго true),
+  // «Практика» (4 часа) и «Повторение» (2 часа) — активные (done строго false).
+  var defaultTasks = [
+    { id: 1, name: "Чтение",     hours: 2, done: true  },
+    { id: 2, name: "Практика",   hours: 4, done: false },
+    { id: 3, name: "Повторение", hours: 2, done: false }
+  ];
+
+  var tasks = [];
+  var currentFilter = "all";
+
+  function load() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (raw !== null) {
+        tasks = JSON.parse(raw);
+        // Страховка: если в сохранённых данных нет полей done —
+        // не считать все задачи невыполненными по умолчанию,
+        // а восстановить статус из начальных данных по названию.
+        var byName = {};
+        defaultTasks.forEach(function (t) { byName[t.name] = t.done; });
+        tasks.forEach(function (t) {
+          if (typeof t.done !== "boolean") {
+            t.done = (t.name in byName) ? byName[t.name] : false;
+          }
+        });
+      } else {
+        tasks = JSON.parse(JSON.stringify(defaultTasks));
+        save();
+      }
+    } catch (e) {
+      tasks = JSON.parse(JSON.stringify(defaultTasks));
+    }
+    currentFilter = localStorage.getItem(FILTER_KEY) || "all";
+  }
+
+  function save() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+      localStorage.setItem(FILTER_KEY, currentFilter);
+    } catch (e) { /* приватный режим — просто работаем без сохранения */ }
+  }
+
+  function nextId() {
+    return tasks.length ? Math.max.apply(null, tasks.map(function (t) { return t.id; })) + 1 : 1;
+  }
+
+  var listEl = document.getElementById("taskList");
+  var emptyEl = document.getElementById("emptyMsg");
+  var statTotal = document.getElementById("statTotal");
+  var statHours = document.getElementById("statHours");
+  var statDone = document.getElementById("statDone");
+  var progressBar = document.getElementById("progressBar");
+
+  function matchesFilter(task) {
+    if (currentFilter === "active") return !task.done;
+    if (currentFilter === "done") return task.done;
+    return true;
+  }
+
+  function formatHours(h) {
+    // 4 -> "4 ч", 2.5 -> "2,5 ч"
+    var s = String(h).replace(".", ",");
+    return s + " ч";
+  }
+
+  function render() {
+    var visible = tasks.filter(matchesFilter);
+
+    listEl.innerHTML = "";
+    visible.forEach(function (task) {
+      var li = document.createElement("li");
+      li.className = "task" + (task.done ? " done" : "");
+
+      var checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = task.done;
+      checkbox.addEventListener("change", function () {
+        task.done = checkbox.checked;
+        save();
+        render();
+      });
+
+      var name = document.createElement("span");
+      name.className = "name";
+      name.textContent = task.name;
+
+      var hours = document.createElement("span");
+      hours.className = "hours";
+      hours.textContent = formatHours(task.hours);
+
+      var del = document.createElement("button");
+      del.className = "delete";
+      del.title = "Удалить задачу";
+      del.textContent = "✕";
+      del.addEventListener("click", function () {
+        tasks = tasks.filter(function (t) { return t.id !== task.id; });
+        save();
+        render();
+      });
+
+      li.appendChild(checkbox);
+      li.appendChild(name);
+      li.appendChild(hours);
+      li.appendChild(del);
+      listEl.appendChild(li);
+    });
+
+    emptyEl.hidden = visible.length !== 0;
+
+    // Статистика считается по всем задачам, независимо от фильтра.
+    // Прогресс — по выполненным часам относительно общего объёма:
+    // при старте выполнено 2 ч из 8, то есть 25%.
+    var totalHours = 0, doneHours = 0;
+    tasks.forEach(function (t) {
+      totalHours += Number(t.hours) || 0;
+      if (t.done) doneHours += Number(t.hours) || 0;
+    });
+    var percent = totalHours > 0 ? Math.round((doneHours / totalHours) * 100) : 0;
+
+    statTotal.textContent = tasks.length;
+    statHours.textContent = doneHours + " из " + totalHours + " ч";
+    statDone.textContent = percent + "%";
+    progressBar.style.width = percent + "%";
+  }
+
+  document.getElementById("addForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var nameEl = document.getElementById("taskName");
+    var hoursEl = document.getElementById("taskHours");
+    var name = nameEl.value.trim();
+    var hours = parseFloat(hoursEl.value.replace(",", "."));
+    if (!name || isNaN(hours) || hours < 0) return;
+    tasks.push({ id: nextId(), name: name, hours: hours, done: false });
+    nameEl.value = "";
+    hoursEl.value = "";
+    nameEl.focus();
+    save();
+    render();
+  });
+
+  document.querySelectorAll(".filters button").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      currentFilter = btn.dataset.filter;
+      document.querySelectorAll(".filters button").forEach(function (b) {
+        b.classList.toggle("active", b === btn);
+      });
+      save();
+      render();
+    });
+  });
+
+  // Восстановить активный фильтр при загрузке
+  document.querySelectorAll(".filters button").forEach(function (b) {
+    b.classList.toggle("active", b.dataset.filter === currentFilter);
+  });
+
+  load();
+  render();
+})();
+</script>
+</body>
+</html>
